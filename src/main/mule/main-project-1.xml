@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="e89e7bd7-f404-44c3-b4b6-5464772f03ea" basePath="/public/v2" >
+		<http:request-connection host="gorest.co.in" />
+	</http:request-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="ff51ba19-46ae-4031-b9d8-f353c09d7373" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="root" />
+	</db:config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="62125cf9-5feb-4b0a-a714-04cf89cde0ed" >
+		<file:connection workingDir="C:\Users\Beti mulu\OneDrive\Desktop\project-1" />
+	</file:config>
+	<file:config name="File_Config1" doc:name="File Config" doc:id="beee4ab0-7772-4a43-8445-90941a685073" >
+		<file:connection workingDir="C:\Users\Beti mulu\OneDrive\Desktop\Database-import" />
+	</file:config>
+	<file:config name="File_Config2" doc:name="File Config" doc:id="27aa5aa9-50d9-4fc9-8802-c9b29a1e1614" >
+		<file:connection workingDir="C:\Users\Beti mulu\OneDrive\Desktop\Database-import" />
+	</file:config>
+	<file:config name="File_Config3" doc:name="File Config" doc:id="3cf12067-b5b2-452d-888f-1566578030fc" >
+		<file:connection workingDir="C:\Users\Beti mulu\OneDrive\Desktop\Database-import" />
+	</file:config>
+	<file:config name="File_Config4" doc:name="File Config" doc:id="e5cb8024-0fb9-4a19-b320-59eac2c37322" >
+		<file:connection workingDir="C:\Users\Beti mulu\OneDrive\Desktop\transformed data" />
+	</file:config>
+	<flow name="System-api-Flow-1-request" doc:id="408276c4-eb13-4ce7-8369-cecf24f8b4e5" >
+		<!-- <http:listener doc:name="Listener" doc:id="34110030-b610-4aa2-93db-30c20bd04592" config-ref="HTTP_Listener_config" path="/sync"/> -->
+		<scheduler doc:name="Scheduler" doc:id="6fdca1a2-fde7-4533-85ea-b63f89b7ab51" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="10000" />
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Logger" doc:id="e80cfe53-8c99-40c2-94af-6820c7b0df71" message='#["start flow == " ++ (now() as Date)as String]' />
+		<http:request method="GET" doc:name="Request" doc:id="5d5ace4e-0769-40e3-9ea0-c3095fccd5f3" config-ref="HTTP_Request_configuration" path="/users"/>
+		<ee:transform doc:name="Transform Message" doc:id="3767d77e-2946-4a4f-8503-c48c9dac5e69" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:id="52a03c71-2d28-4f70-865d-f2dda152eeb4" config-ref="File_Config" path="white-or-read-file.json"/>
+		<!-- <db:select doc:name="Select" doc:id="7f32a12e-d335-4a61-9e3a-57eef5671e6f" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from studentsdb.userdata;]]></db:sql>
+		</db:select> -->
+	</flow>
+	<flow name="System-api-Flow-2-database" doc:id="779b40fd-148a-46f9-a25d-d4da9f3d6a81" >
+		<file:listener doc:name="On New or Updated File" doc:id="4020f5ec-e9a4-4d06-aabf-f9020da01bc8" config-ref="File_Config" outputMimeType="application/json">
+			<scheduling-strategy >
+				<fixed-frequency frequency="5000"/>
+			</scheduling-strategy>
+		</file:listener>
+		<parallel-foreach doc:name="Parallel For Each" doc:id="312d1ad5-b6fb-40e3-b64c-ae9efd6879fa">
+			<db:insert doc:name="Insert" doc:id="8bde62e1-2d80-4bb8-8108-2f2feb75f013" config-ref="Database_Config">
+			<db:sql><![CDATA[INSERT INTO studentsdb.userdata (id, name, email, gender, status) VALUES (:id, :name, :email, :gender, :status);]]></db:sql>
+			<db:input-parameters><![CDATA[#[{
+	"id" : payload.id,
+	"name" : payload.name,
+	"email" : payload.email,
+	"gender" : payload.gender,
+	"status" : payload.status
+}]]]></db:input-parameters>
+		</db:insert>
+		</parallel-foreach>
+		<db:select doc:name="Select" doc:id="7bbb63ac-4097-4b22-9e14-8d09a9e3e99d" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from studentsdb.userdata;]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="e94c19f3-6b7d-4a3a-8e14-a2e522b0bdcd" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Write" doc:id="9bf56550-4fed-494a-9bbf-22c84aac4d7a" config-ref="File_Config2" path="newdata.json"/>
+	</flow>
+	<flow name="Experience-api-1Flow" doc:id="c957b99a-a48c-448e-9af4-1aec5eee5458" >
+		<file:listener doc:name="On New or Updated File" doc:id="8eceac04-0b57-419c-a0c9-5745c39f84d0" config-ref="File_Config3" outputMimeType="application/json" timeBetweenSizeCheckUnit="MILLISECONDS">
+			<scheduling-strategy >
+				<fixed-frequency frequency="5000" />
+			</scheduling-strategy>
+		</file:listener>
+		<ee:transform doc:name="Transform Message" doc:id="6c38b240-82a2-488d-8b2e-11953cd1aed6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ((item, index) -> {
+    "UserId" : item.id filter (sizeOf($)<=15),
+    "UserName" : item.name filter (sizeOf($)<=30),
+    "EmailId" : item.email filter (sizeOf($)<=45),
+    "Gender" : item.gender filter (sizeOf($)<=6),
+    "Status" : item.status filter (sizeOf($)<=10)
+})]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Write" doc:id="31b5553e-e40a-4ef7-a260-30c5e59c4ccc" path="C:\Users\Beti mulu\OneDrive\Desktop\transformed data\transforemed-output.json"/>
+	</flow>
+</mule>
